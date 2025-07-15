@@ -5,13 +5,13 @@ import { Inter } from 'next/font/google';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Affiliate Link Processor',
-  description: 'Professional tool for processing proxies and affiliate links',
+  title: 'GETAFF.LINK',
+  description: 'Uncover the true destination and tracking parameters of any affiliate link',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="zh-CN" className="dark">
+    <html lang="en-US" className="dark">
       <body className={inter.className}>{children}</body>
     </html>
   );
