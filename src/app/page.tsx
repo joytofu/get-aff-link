@@ -132,10 +132,7 @@ export default function Home() {
                 localStorage.setItem('ws_client_id', data.payload);
               } else if (data.type === 'PROCESSING') {
                 setProcessingMessages(prev => [...prev, { type: 'PROCESSING', message: data.data, timestamp: new Date().toISOString() }]);
-                if (data.data?.includes('Final Params')) {
-                  setIsSubmitting(false);
-                  setSubmissionStatus('Job Done!');
-                } else if (data.data?.includes('Final Queries') || data.data?.includes('Mission Aborted')) {
+                if (data.data?.includes('Final Queries')) {
                   setIsSubmitting(false);
                   setSubmissionStatus('Job Done!');
                 }
