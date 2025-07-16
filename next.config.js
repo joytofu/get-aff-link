@@ -8,6 +8,15 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+
+  // Add webpack configuration to handle Markdown files
+  webpack: (config) => {
+    config.module.rules.push({
+      test: /\.md$/,
+      type: 'asset/source', // 使用webpack5内置的asset/source替代raw-loader
+    });
+    return config;
+  },
 };
 
 module.exports = nextConfig;
