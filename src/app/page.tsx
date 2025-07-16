@@ -132,7 +132,7 @@ export default function Home() {
                 localStorage.setItem('ws_client_id', data.payload);
               } else if (data.type === 'PROCESSING') {
                 setProcessingMessages(prev => [...prev, { type: 'PROCESSING', message: data.data, timestamp: new Date().toISOString() }]);
-                if (data.data?.includes('Final Queries')) {
+                if (data.data?.includes('Final Params')) {
                   setIsSubmitting(false);
                   setSubmissionStatus('Job Done!');
                 }
@@ -358,7 +358,7 @@ export default function Home() {
                 <div key={index} className="py-1 border-b border-gray-800 last:border-0 flex items-start">
                   <span className="text-gray-500 mr-2">[{new Date(msg.timestamp!).toLocaleTimeString()}]</span>
                   <span className="flex-1 whitespace-pre-wrap">{msg.message}</span>
-                   {msg.message.includes('Final Queries') && (
+                   {msg.message.includes('Final Params') && (
                     <span className="text-green-400 ml-2 self-center">✓ Done</span>
                   )}
                   {msg.message.includes('Mission Aborted') && (
