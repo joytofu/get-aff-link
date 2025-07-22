@@ -4,12 +4,22 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'refresh' | 'proxy'>('refresh');
+  // 添加新的标签页类型
+  const [activeTab, setActiveTab] = useState<'refresh' | 'proxy' | 'clickFarming'>('refresh');
   const [formData, setFormData] = useState({
     refreshProxyUrl: '',
     affLink: '',
     proxiesList: ''
   });
+  // 添加Click Farming表单状态
+  const [clickFarmingFormData, setClickFarmingFormData] = useState({
+    proxy: '',
+    targetUrl: '',
+    totalClicks: '',
+    referer: 'Google',
+    customReferer: ''
+  });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [showNotification, setShowNotification] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState('');
   const [clientId, setClientId] = useState<string | null>(null);
@@ -223,6 +233,59 @@ export default function Home() {
     });
   };
 
+  // 添加Click Farming表单处理函数
+  const handleClickFarmingInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setClickFarmingFormData(prev => ({ ...prev, [name]: value }));
+    if (formErrors[name]) {
+      setFormErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  // 添加表单验证函数
+  const validateClickFarmingForm = () => {
+    const errors: Record<string, string> = {};
+    const proxyRegex = /^[^:]+:[0-9]+:[^:]+:[0-9]+$/;
+    const urlRegex = /^https?:\/\/.+$/;
+    const numberRegex = /^[1-9]\d*$/;
+
+    if (!clickFarmingFormData.proxy) {
+      errors.proxy = 'Proxy is required';
+    } else if (!proxyRegex.test(clickFarmingFormData.proxy)) {
+      errors.proxy = 'Invalid format. Use host:port:user:port';
+    }
+
+    if (!clickFarmingFormData.targetUrl) {
+      errors.targetUrl = 'Target URL is required';
+    } else if (!urlRegex.test(clickFarmingFormData.targetUrl)) {
+      errors.targetUrl = 'Invalid URL format';
+    }
+
+    if (!clickFarmingFormData.totalClicks) {
+      errors.totalClicks = 'Total Clicks is required';
+    } else if (!numberRegex.test(clickFarmingFormData.totalClicks)) {
+      errors.totalClicks = 'Must be a positive integer';
+    }
+
+    if (clickFarmingFormData.referer === 'Custom' && (!clickFarmingFormData.customReferer || !urlRegex.test(clickFarmingFormData.customReferer))) {
+      errors.customReferer = 'Valid URL is required for custom referer';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // 添加表单提交处理
+  const handleClickFarmingSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (validateClickFarmingForm()) {
+      // 暂不实现后端交互，仅显示提示
+      setNotificationMessage('Click farming task started!');
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 3000);
+    }
+  };
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4 sm:p-6 lg:p-8 bg-gradient-to-br from-dark to-dark-light">
       <div className="w-full max-w-3xl space-y-8">
@@ -266,6 +329,13 @@ export default function Home() {
             >
               Proxy List
             </button>
+            
+            <button
+              className={`flex-1 py-4 px-6 text-center font-semibold transition-all ${activeTab === 'clickFarming' ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'bg-dark-light text-gray-400 hover:bg-dark-light/80'}`}
+              onClick={() => setActiveTab('clickFarming')}
+            >
+              Click Farming
+            </button>
           </div>
 
           <div className="p-6 space-y-6">
@@ -273,43 +343,45 @@ export default function Home() {
               <form onSubmit={handleRefreshProxySubmit} className="space-y-6">
                 <div>
                   <label htmlFor="refreshProxyUrl" className="block text-sm font-medium text-gray-300 mb-1">
-                    Refresh Proxy API URL
+                    Refresh Proxy URL
                   </label>
                   <input
-                    type="url"
+                    type="text"
                     id="refreshProxyUrl"
                     name="refreshProxyUrl"
                     value={formData.refreshProxyUrl}
                     onChange={handleInputChange}
                     required
                     className="w-full bg-dark border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="https://api.example.com/proxies"
+                    placeholder="https://api.example.com/proxy"
                   />
                 </div>
+
                 <div>
                   <label htmlFor="affLink" className="block text-sm font-medium text-gray-300 mb-1">
                     Affiliate Link
                   </label>
                   <input
-                    type="url"
+                    type="text"
                     id="affLink"
                     name="affLink"
                     value={formData.affLink}
                     onChange={handleInputChange}
                     required
                     className="w-full bg-dark border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="https://www.example.com/affiliate-link"
+                    placeholder="https://example.com/affiliate-link"
                   />
                 </div>
+
                 <button type="submit" className="w-full bg-primary text-white font-bold py-2 px-4 rounded-md hover:bg-primary/90 disabled:bg-gray-500 transition-colors" disabled={isSubmitting || connectionStatus !== 'connected'}>
-                  {isSubmitting ? 'Processing...' : 'Submit Request'}
+                  {isSubmitting ? 'Processing...' : 'Refresh Proxy'}
                 </button>
               </form>
-            ) : (
+            ) : activeTab === 'proxy' ? (
               <form onSubmit={handleProxyListSubmit} className="space-y-6">
                 <div>
                   <label htmlFor="proxiesList" className="block text-sm font-medium text-gray-300 mb-1">
-                    Proxy List (one per line)
+                    Proxies List (one per line)
                   </label>
                   <textarea
                     id="proxiesList"
@@ -317,27 +389,135 @@ export default function Home() {
                     value={formData.proxiesList}
                     onChange={handleInputChange}
                     required
-                    className="w-full min-h-[150px] bg-dark border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="Enter proxy addresses, one per line"
+                    rows={6}
+                    className="w-full bg-dark border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="host:port:user:pass
+192.168.1.1:8080:user1:pass1
+192.168.1.2:8080:user2:pass2"
                   />
                 </div>
+
                 <div>
                   <label htmlFor="affLinkProxy" className="block text-sm font-medium text-gray-300 mb-1">
                     Affiliate Link
                   </label>
                   <input
-                    type="url"
+                    type="text"
                     id="affLinkProxy"
                     name="affLink"
                     value={formData.affLink}
                     onChange={handleInputChange}
                     required
                     className="w-full bg-dark border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="https://www.example.com/affiliate-link"
+                    placeholder="https://example.com/affiliate-link"
                   />
                 </div>
+
                 <button type="submit" className="w-full bg-primary text-white font-bold py-2 px-4 rounded-md hover:bg-primary/90 disabled:bg-gray-500 transition-colors" disabled={isSubmitting || connectionStatus !== 'connected'}>
-                  {isSubmitting ? 'Processing...' : 'Submit Request'}
+                  {isSubmitting ? 'Processing...' : 'Submit Proxy List'}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleClickFarmingSubmit} className="space-y-6">
+                <div>
+                  <label htmlFor="proxy" className="block text-sm font-medium text-gray-300 mb-1">
+                    Proxy
+                  </label>
+                  <input
+                    type="text"
+                    id="proxy"
+                    name="proxy"
+                    value={clickFarmingFormData.proxy}
+                    onChange={handleClickFarmingInputChange}
+                    required
+                    className={`w-full bg-dark border rounded-md px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary ${formErrors.proxy ? 'border-red-500' : 'border-gray-600'}`}
+                    placeholder="host:port:user:port"
+                  />
+                  {formErrors.proxy && <p className="mt-1 text-sm text-red-500">{formErrors.proxy}</p>}
+                </div>
+
+                <div>
+                  <label htmlFor="targetUrl" className="block text-sm font-medium text-gray-300 mb-1">
+                    Target URL
+                  </label>
+                  <input
+                    type="url"
+                    id="targetUrl"
+                    name="targetUrl"
+                    value={clickFarmingFormData.targetUrl}
+                    onChange={handleClickFarmingInputChange}
+                    required
+                    className={`w-full bg-dark border rounded-md px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary ${formErrors.targetUrl ? 'border-red-500' : 'border-gray-600'}`}
+                    placeholder="https://example.com"
+                  />
+                  {formErrors.targetUrl && <p className="mt-1 text-sm text-red-500">{formErrors.targetUrl}</p>}
+                </div>
+
+                <div>
+                  <label htmlFor="totalClicks" className="block text-sm font-medium text-gray-300 mb-1">
+                    Total Clicks
+                  </label>
+                  <input
+                    type="number"
+                    id="totalClicks"
+                    name="totalClicks"
+                    value={clickFarmingFormData.totalClicks}
+                    onChange={handleClickFarmingInputChange}
+                    required
+                    min="1"
+                    className={`w-full bg-dark border rounded-md px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary ${formErrors.totalClicks ? 'border-red-500' : 'border-gray-600'}`}
+                    placeholder="100"
+                  />
+                  {formErrors.totalClicks && <p className="mt-1 text-sm text-red-500">{formErrors.totalClicks}</p>}
+                </div>
+
+                <div>
+                  <label htmlFor="referer" className="block text-sm font-medium text-gray-300 mb-1">
+                    Referer
+                  </label>
+                  <select
+                    id="referer"
+                    name="referer"
+                    value={clickFarmingFormData.referer}
+                    onChange={handleClickFarmingInputChange}
+                    className="w-full bg-dark border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="Google">Google</option>
+                    <option value="YouTube">YouTube</option>
+                    <option value="X">X</option>
+                    <option value="Facebook">Facebook</option>
+                    <option value="Bing">Bing</option>
+                    <option value="Instagram">Instagram</option>
+                    <option value="Tumblr">Tumblr</option>
+                    <option value="Tiktok">Tiktok</option>
+                    <option value="Duckduckgo">Duckduckgo</option>
+                    <option value="Yandex">Yandex</option>
+                    <option value="Pinterest">Pinterest</option>
+                    <option value="Custom">Custom</option>
+                  </select>
+                </div>
+
+                {clickFarmingFormData.referer === 'Custom' && (
+                  <div>
+                    <label htmlFor="customReferer" className="block text-sm font-medium text-gray-300 mb-1">
+                      Custom Referer URL
+                    </label>
+                    <input
+                      type="url"
+                      id="customReferer"
+                      name="customReferer"
+                      value={clickFarmingFormData.customReferer}
+                      onChange={handleClickFarmingInputChange}
+                      required
+                      className={`w-full bg-dark border rounded-md px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary ${formErrors.customReferer ? 'border-red-500' : 'border-gray-600'}`}
+                      placeholder="https://custom-referer.com"
+                    />
+                    {formErrors.customReferer && <p className="mt-1 text-sm text-red-500">{formErrors.customReferer}</p>}
+                  </div>
+                )}
+
+                <button type="submit" className="w-full bg-primary text-white font-bold py-2 px-4 rounded-md hover:bg-primary/90 disabled:bg-gray-500 transition-colors" disabled={isSubmitting || connectionStatus !== 'connected'}>
+                  {isSubmitting ? 'Processing...' : 'Start'}
                 </button>
               </form>
             )}
