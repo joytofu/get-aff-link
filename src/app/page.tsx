@@ -27,8 +27,15 @@ export default function Home() {
   const [submissionStatus, setSubmissionStatus] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<string>('disconnected'); // disconnected, connecting, connected, error
   const [processingMessages, setProcessingMessages] = useState<Array<{type: string; message: string; timestamp?: string}>>([]);
+  const [taskId, setTaskId] = useState<string | null>(null);
+  const [taskStatus, setTaskStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
+  const [progress, setProgress] = useState(0);
+  const [completedCount, setCompletedCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const [sseMessages, setSseMessages] = useState<Array<{type: string; data: string; timestamp: string}>>([]);
 
   const socketRef = useRef<WebSocket | null>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
   const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -46,6 +53,10 @@ export default function Home() {
         socketRef.current.close(1000, 'Cleanup connection');
       }
       socketRef.current = null;
+    }
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
     }
 
     if (connectionTimeoutRef.current) {
@@ -187,6 +198,93 @@ export default function Home() {
     };
   }, [cleanupConnection]);
 
+  useEffect(() => {
+    if (!taskId) return;
+
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+    }
+
+    setTaskStatus('running');
+    const sseUrl = `${process.env.NEXT_PUBLIC_API_URL}/sse/${taskId}`;
+    console.log(`[SSE] Attempting to connect to: ${sseUrl}`);
+
+    const eventSource = new EventSource(sseUrl);
+    eventSourceRef.current = eventSource;
+
+    eventSource.onopen = () => {
+      console.log('[SSE] Connection successfully established.');
+    };
+
+    eventSource.onmessage = (event) => {
+      console.log('[SSE] Message received:', event.data);
+      try {
+        const message = JSON.parse(event.data);
+        const timestamp = new Date().toISOString();
+
+        switch (message.type) {
+          case 'msg.process.info':
+            setSseMessages(prev => [...prev, { type: 'info', data: message.data, timestamp }]);
+            if (typeof message.data === 'string' && message.data.includes('Job Finished')) {
+              setTaskStatus('done');
+              if (eventSourceRef.current) {
+                eventSourceRef.current.close();
+                console.log('[SSE] Job Finished message received. Closing connection.');
+              }
+            }
+            break;
+
+          case 'msg.process.error':
+            setSseMessages(prev => [...prev, { type: 'error', data: message.data, timestamp }]);
+            break;
+
+          case 'msg.process.result':
+            const { total_attempted, succeeded } = message.data;
+            const displayMessage = `Progress update: ${succeeded} succeeded / ${total_attempted} attempted.`;
+            setSseMessages(prev => [...prev, { type: 'info', data: displayMessage, timestamp }]);
+            
+            setCompletedCount(succeeded);
+            localStorage.setItem(`progress_${taskId}`, String(succeeded));
+            
+            if (totalCount > 0) {
+              const percentage = (succeeded / totalCount) * 100;
+              setProgress(percentage);
+            }
+
+            if (succeeded >= totalCount) {
+              setTaskStatus('done');
+              if (progress < 100) setProgress(100);
+            }
+            break;
+
+          default:
+            const unknownMessage = `Unknown message type: ${message.type}, data: ${JSON.stringify(message.data)}`;
+            setSseMessages(prev => [...prev, { type: 'error', data: unknownMessage, timestamp }]);
+            console.warn(`[SSE] Received unhandled message type: ${message.type}`);
+            break;
+        }
+      } catch (error) {
+        console.error('[SSE] Error parsing message data:', error);
+        setSseMessages(prev => [...prev, { type: 'error', data: `Failed to parse message: ${event.data}`, timestamp: new Date().toISOString() }]);
+      }
+    };
+
+    eventSource.onerror = (error) => {
+      console.error('[SSE] Connection error:', error);
+      setSseMessages(prev => [...prev, { type: 'error', data: 'A connection error occurred.', timestamp: new Date().toISOString() }]);
+      setTaskStatus('error');
+      eventSource.close();
+    };
+
+    return () => {
+      console.log('[SSE] Cleaning up connection.');
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+    };
+  }, [taskId, totalCount]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -245,14 +343,15 @@ export default function Home() {
   // 添加表单验证函数
   const validateClickFarmingForm = () => {
     const errors: Record<string, string> = {};
-    const proxyRegex = /^[^:]+:[0-9]+:[^:]+:[0-9]+$/;
+    // 将密码部分的数字限制改为允许任意字符（除冒号外）
+    const proxyRegex = /^[^:]+:[0-9]+:[^:]+:[^:]+$/;
     const urlRegex = /^https?:\/\/.+$/;
     const numberRegex = /^[1-9]\d*$/;
 
     if (!clickFarmingFormData.proxy) {
       errors.proxy = 'Proxy is required';
     } else if (!proxyRegex.test(clickFarmingFormData.proxy)) {
-      errors.proxy = 'Invalid format. Use host:port:user:port';
+      errors.proxy = 'Invalid format. Use host:port:user:pass';
     }
 
     if (!clickFarmingFormData.targetUrl) {
@@ -275,14 +374,55 @@ export default function Home() {
     return Object.keys(errors).length === 0;
   };
 
-  // 添加表单提交处理
-  const handleClickFarmingSubmit = (e: React.FormEvent) => {
+  const handleClickFarmingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateClickFarmingForm()) {
-      // 暂不实现后端交互，仅显示提示
-      setNotificationMessage('Click farming task started!');
+    if (!validateClickFarmingForm() || !clientId) {
+      if (!clientId) {
+        setNotificationMessage('WebSocket is not connected. Please wait.');
+        setShowNotification(true);
+        setTimeout(() => setShowNotification(false), 3000);
+      }
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSseMessages([]);
+    setProgress(0);
+    setCompletedCount(0);
+    setTaskId(null);
+    setTaskStatus('idle'); // Reset task status before starting
+
+    const total = parseInt(clickFarmingFormData.totalClicks, 10);
+    setTotalCount(total);
+
+    const payload = {
+      proxy: clickFarmingFormData.proxy,
+      target_url: clickFarmingFormData.targetUrl,
+      total: total,
+      referer: clickFarmingFormData.referer === 'Custom' ? clickFarmingFormData.customReferer : clickFarmingFormData.referer,
+      client_id: clientId,
+    };
+
+    console.log('Sending payload to /job/click-farming:', JSON.stringify(payload, null, 2));
+
+    try {
+      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/job/click-farming`, payload);
+      if (response.data && response.data.task_id) {
+        setTaskId(response.data.task_id);
+        setNotificationMessage('Click farming task started!');
+        setShowNotification(true);
+        setTimeout(() => setShowNotification(false), 3000);
+      } else {
+        throw new Error('Invalid response from server');
+      }
+    } catch (error) {
+      console.error('Submission failed:', error);
+      setNotificationMessage('Submission failed. Please check console.');
       setShowNotification(true);
       setTimeout(() => setShowNotification(false), 3000);
+      setTaskStatus('error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -482,17 +622,20 @@ export default function Home() {
                     onChange={handleClickFarmingInputChange}
                     className="w-full bg-dark border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
                   >
-                    <option value="Google">Google</option>
-                    <option value="YouTube">YouTube</option>
-                    <option value="X">X</option>
-                    <option value="Facebook">Facebook</option>
-                    <option value="Bing">Bing</option>
-                    <option value="Instagram">Instagram</option>
-                    <option value="Tumblr">Tumblr</option>
-                    <option value="Tiktok">Tiktok</option>
-                    <option value="Duckduckgo">Duckduckgo</option>
-                    <option value="Yandex">Yandex</option>
-                    <option value="Pinterest">Pinterest</option>
+                    <option value="https://google.com">Google</option>
+                    <option value="https://www.youtube.com">YouTube</option>
+                    <option value="https://t.co">X</option>
+                    <option value="https://facebook.com">Facebook</option>
+                    <option value="https://www.bing.com">Bing</option>
+                    <option value="https://instagram.com">Instagram</option>
+                    <option value="https://reddit.com">Reddit</option>
+                    <option value="https://www.tumblr.com">Tumblr</option>
+                    <option value="https://tiktok.com">Tiktok</option>
+                    <option value="https://duckduckgo.com">Duckduckgo</option>
+                    <option value="https://yandex.ru">Yandex</option>
+                  
+                    <option value="https://pinterest.com">Pinterest</option>  
+                    <option value="https://xiaohongshu.com">Xiaohongshu</option>         
                     <option value="Custom">Custom</option>
                   </select>
                 </div>
@@ -516,51 +659,98 @@ export default function Home() {
                   </div>
                 )}
 
-                <button type="submit" className="w-full bg-primary text-white font-bold py-2 px-4 rounded-md hover:bg-primary/90 disabled:bg-gray-500 transition-colors" disabled={isSubmitting || connectionStatus !== 'connected'}>
-                  {isSubmitting ? 'Processing...' : 'Start'}
+                <button 
+                  type="submit" 
+                  className="w-full bg-primary text-white font-bold py-2 px-4 rounded-md hover:bg-primary/90 disabled:bg-gray-500 transition-colors"
+                  disabled={isSubmitting || connectionStatus !== 'connected' || taskStatus === 'running'}
+                >
+                  {taskStatus === 'running' ? 'Task Running...' : (isSubmitting ? 'Processing...' : 'Start')}
                 </button>
               </form>
             )}
           </div>
         </div>
 
-        {submissionStatus && (
-          <div className="bg-secondary/20 border border-secondary/40 rounded-lg p-4 text-center text-secondary animate-fade-in">
-            {submissionStatus}
+        {taskStatus !== 'idle' && (
+          <div className="bg-dark-light rounded-xl p-6 border border-gray-700">
+            <h2 className="text-lg font-medium text-gray-300 mb-4">Task Progress</h2>
+            <div className="w-full bg-dark rounded-full h-4 mb-2 border border-gray-600">
+              <div 
+                className="bg-primary h-full rounded-full transition-all duration-500 ease-out text-center text-xs text-white leading-none"
+                style={{ width: `${progress}%` }}
+              >
+                {Math.round(progress)}%
+              </div>
+            </div>
+            <div className="text-right text-gray-400 text-sm">
+              {completedCount} / {totalCount}
+            </div>
+            <div className="min-h-[100px] max-h-[300px] overflow-y-auto border border-gray-700 rounded-lg p-4 bg-dark text-sm text-gray-300 space-y-2 font-mono mt-4">
+              {sseMessages.length > 0 ? (
+                sseMessages.map((msg, index) => (
+                  <div key={index} className="py-1 border-b border-gray-800 last:border-0 flex items-start">
+                    <span className="text-gray-500 mr-2">[{new Date(msg.timestamp).toLocaleTimeString()}]</span>
+                    <span className={`flex-1 whitespace-pre-wrap ${msg.type === 'error' ? 'text-red-400' : 'text-gray-300'}`}>{msg.data}</span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500">Waiting for task events...</p>
+              )}
+              {taskStatus === 'running' && (
+                <div className="flex items-center text-yellow-400 mt-2 animate-pulse">
+                  <span>Task is running...</span>
+                </div>
+              )}
+              {taskStatus === 'done' && (
+                <div className="flex items-center text-green-400 mt-2">
+                  <span>Task Done!</span>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
-        <div className="bg-dark-light rounded-xl p-6 border border-gray-700">
-          <h2 className="text-lg font-medium text-gray-300 mb-4">Processing Results</h2>
-          <div className="min-h-[100px] max-h-[300px] overflow-y-auto border border-gray-700 rounded-lg p-4 bg-dark text-sm text-gray-300 space-y-2 font-mono">
-            {processingMessages.length > 0 ? (
-              processingMessages.map((msg, index) => (
-                <div key={index} className="py-1 border-b border-gray-800 last:border-0 flex items-start">
-                  <span className="text-gray-500 mr-2">[{new Date(msg.timestamp!).toLocaleTimeString()}]</span>
-                  <span className="flex-1 whitespace-pre-wrap">{msg.message}</span>
-                   {msg.message.includes('Final Params') && (
-                    <span className="text-green-400 ml-2 self-center">✓ Done</span>
-                  )}
-                  {msg.message.includes('Mission Aborted') && (
-                    <span className="text-red-400 ml-2 self-center">✗ Failed</span>
-                  )}
-                </div>
-              ))
-            ) : (
-              <p className="text-gray-500">Waiting for backend processing...</p>
-            )}
-            {isSubmitting && (
-              <div className="flex items-center text-yellow-400 mt-2 animate-pulse">
-                <span>Processing...</span>
+        {activeTab !== 'clickFarming' && (
+          <>
+            {submissionStatus && (
+              <div className="bg-secondary/20 border border-secondary/40 rounded-lg p-4 text-center text-secondary animate-fade-in">
+                {submissionStatus}
               </div>
             )}
-            {submissionStatus === 'Job Done!' && (
-              <div className="flex items-center text-green-400 mt-2">
-                <span>Job Done!</span>
+
+            <div className="bg-dark-light rounded-xl p-6 border border-gray-700">
+              <h2 className="text-lg font-medium text-gray-300 mb-4">Processing Results</h2>
+              <div className="min-h-[100px] max-h-[300px] overflow-y-auto border border-gray-700 rounded-lg p-4 bg-dark text-sm text-gray-300 space-y-2 font-mono">
+                {processingMessages.length > 0 ? (
+                  processingMessages.map((msg, index) => (
+                    <div key={index} className="py-1 border-b border-gray-800 last:border-0 flex items-start">
+                      <span className="text-gray-500 mr-2">[{new Date(msg.timestamp!).toLocaleTimeString()}]</span>
+                      <span className="flex-1 whitespace-pre-wrap">{msg.message}</span>
+                      {msg.message.includes('Final Params') && (
+                        <span className="text-green-400 ml-2 self-center">✓ Done</span>
+                      )}
+                      {msg.message.includes('Mission Aborted') && (
+                        <span className="text-red-400 ml-2 self-center">✗ Failed</span>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500">Waiting for backend processing...</p>
+                )}
+                {isSubmitting && (
+                  <div className="flex items-center text-yellow-400 mt-2 animate-pulse">
+                    <span>Processing...</span>
+                  </div>
+                )}
+                {submissionStatus === 'Job Done!' && (
+                  <div className="flex items-center text-green-400 mt-2">
+                    <span>Job Done!</span>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </div>
+            </div>
+          </>
+        )}
       </div>
     </main>
   );
