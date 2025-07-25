@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
+import Modal from './components/Modal'; // 引入Modal组件
 
 export default function Home() {
   // 添加新的标签页类型
-  const [activeTab, setActiveTab] = useState<'refresh' | 'proxy' | 'clickFarming'>('refresh');
+  const [activeTab, setActiveTab] = useState<'refresh' | 'proxy' | 'clickFarming' | 'mutateSuffixes'>('refresh');
   const [formData, setFormData] = useState({
     refreshProxyUrl: '',
     affLink: '',
@@ -19,11 +20,18 @@ export default function Home() {
     referer: 'Google',
     customReferer: ''
   });
+  // 为Mutate Suffixes添加新的状态
+  const [mutateSuffixesAuthData, setMutateSuffixesAuthData] = useState({ customerIds: '' });
+  const [mutateSuffixesSubmitData, setMutateSuffixesSubmitData] = useState({ customerId: '', suffixes: '' });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [mutateSuffixesErrors, setMutateSuffixesErrors] = useState<Record<string, string>>({});
+  const [modalState, setModalState] = useState({ isOpen: false, title: '', content: '' });
   const [showNotification, setShowNotification] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState('');
   const [clientId, setClientId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isAuthorizing, setIsAuthorizing] = useState<boolean>(false);
+  const [isSubmittingSuffixes, setIsSubmittingSuffixes] = useState<boolean>(false);
   const [submissionStatus, setSubmissionStatus] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<string>('disconnected'); // disconnected, connecting, connected, error
   const [processingMessages, setProcessingMessages] = useState<Array<{type: string; message: string; timestamp?: string}>>([]);
@@ -426,6 +434,95 @@ export default function Home() {
     }
   };
 
+  const validateCustomerId = (id: string): boolean => {
+    const pattern = /^(\d{3}-\d{3}-\d{4}|\d{10})$/;
+    return pattern.test(id.trim());
+  };
+
+  const handleMutateSuffixesInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value, form } = e.target;
+    const formId = form?.id;
+
+    if (formId === 'authorizeForm') {
+      setMutateSuffixesAuthData(prev => ({ ...prev, [name]: value }));
+      if (mutateSuffixesErrors.customerIds) {
+        setMutateSuffixesErrors(prev => ({ ...prev, customerIds: '' }));
+      }
+    } else if (formId === 'submitSuffixesForm') {
+      setMutateSuffixesSubmitData(prev => ({ ...prev, [name]: value }));
+      if (mutateSuffixesErrors[name]) {
+        setMutateSuffixesErrors(prev => ({ ...prev, [name]: '' }));
+      }
+    }
+  };
+
+  const handleAuthorizeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const errors: Record<string, string> = {};
+    const customerIds = mutateSuffixesAuthData.customerIds.split('\n').filter(id => id.trim() !== '');
+    
+    if (customerIds.length === 0) {
+      errors.customerIds = 'At least one Customer ID is required.';
+    } else {
+      const allValid = customerIds.every(validateCustomerId);
+      if (!allValid) {
+        errors.customerIds = 'One or more Customer IDs are invalid. Use 111-111-1111 or 1111111111 format.';
+      }
+    }
+
+    setMutateSuffixesErrors(errors);
+
+    if (Object.keys(errors).length === 0) {
+      setIsAuthorizing(true);
+      try {
+        const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/send-invitations`, { customer_ids: customerIds });
+        setModalState({ isOpen: true, title: 'Invitation Results', content: response.data.data });
+        setMutateSuffixesAuthData({ customerIds: '' });
+      } catch (error) {
+        console.error('Authorization failed:', error);
+        const errorMessage = axios.isAxiosError(error) && error.response ? JSON.stringify(error.response.data) : 'An unexpected error occurred.';
+        setModalState({ isOpen: true, title: 'Authorization Failed', content: errorMessage });
+      } finally {
+        setIsAuthorizing(false);
+      }
+    }
+  };
+
+  const handleSuffixesSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const errors: Record<string, string> = {};
+
+    if (!validateCustomerId(mutateSuffixesSubmitData.customerId)) {
+      errors.customerId = 'Invalid Customer ID format. Use 111-111-1111 or 1111111111.';
+    }
+
+    const suffixes = mutateSuffixesSubmitData.suffixes.split('\n').filter(s => s.trim() !== '');
+    if (suffixes.length === 0) {
+      errors.suffixes = 'Suffixes cannot be empty.';
+    }
+    
+    setMutateSuffixesErrors(errors);
+
+    if (Object.keys(errors).length === 0) {
+      setIsSubmittingSuffixes(true);
+      try {
+        const payload = {
+          customer_id: mutateSuffixesSubmitData.customerId.replace(/-/g, ''),
+          final_url_suffixes: suffixes
+        };
+        const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/mutate-suffixes`, payload);
+        setModalState({ isOpen: true, title: 'Submission Successful', content: response.data.data || 'Suffixes have been submitted successfully.' });
+        setMutateSuffixesSubmitData({ customerId: '', suffixes: '' });
+      } catch (error) {
+        console.error('Suffix submission failed:', error);
+        const errorMessage = axios.isAxiosError(error) && error.response ? JSON.stringify(error.response.data) : 'An unexpected error occurred.';
+        setModalState({ isOpen: true, title: 'Submission Failed', content: errorMessage });
+      } finally {
+        setIsSubmittingSuffixes(false);
+      }
+    }
+  };
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4 sm:p-6 lg:p-8 bg-gradient-to-br from-dark to-dark-light">
       <div className="w-full max-w-3xl space-y-8">
@@ -476,6 +573,12 @@ export default function Home() {
             >
               Click Farming
             </button>
+            <button
+              className={`flex-1 py-4 px-6 text-center font-semibold transition-all ${activeTab === 'mutateSuffixes' ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'bg-dark-light text-gray-400 hover:bg-dark-light/80'}`}
+              onClick={() => setActiveTab('mutateSuffixes')}
+            >
+              Mutate Suffixes
+            </button>
           </div>
 
           <div className="p-6 space-y-6">
@@ -514,7 +617,7 @@ export default function Home() {
                 </div>
 
                 <button type="submit" className="w-full bg-primary text-white font-bold py-2 px-4 rounded-md hover:bg-primary/90 disabled:bg-gray-500 transition-colors" disabled={isSubmitting || connectionStatus !== 'connected'}>
-                  {isSubmitting ? 'Processing...' : 'Refresh Proxy'}
+                  {isSubmitting ? 'Processing...' : 'Get Final Params'}
                 </button>
               </form>
             ) : activeTab === 'proxy' ? (
@@ -557,7 +660,7 @@ export default function Home() {
                   {isSubmitting ? 'Processing...' : 'Submit Proxy List'}
                 </button>
               </form>
-            ) : (
+            ) : activeTab === 'clickFarming' ? (
               <form onSubmit={handleClickFarmingSubmit} className="space-y-6">
                 <div>
                   <label htmlFor="proxy" className="block text-sm font-medium text-gray-300 mb-1">
@@ -667,6 +770,78 @@ export default function Home() {
                   {taskStatus === 'running' ? 'Task Running...' : (isSubmitting ? 'Processing...' : 'Start')}
                 </button>
               </form>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Left Form: Authorize */}
+                <form id="authorizeForm" onSubmit={handleAuthorizeSubmit} className="space-y-6">
+                  <div>
+                    <label htmlFor="customerIds" className="block text-sm font-medium text-gray-300 mb-1">
+                      Customer IDs (one per line)
+                    </label>
+                    <textarea
+                      id="customerIds"
+                      name="customerIds"
+                      value={mutateSuffixesAuthData.customerIds}
+                      onChange={handleMutateSuffixesInputChange}
+                      required
+                      rows={8}
+                      className={`w-full bg-dark border rounded-md px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-2 focus:ring-primary ${mutateSuffixesErrors.customerIds ? 'border-red-500' : 'border-gray-600'}`}
+                      placeholder="111-111-1111 or 1111111111"
+                    />
+                    {mutateSuffixesErrors.customerIds && <p className="mt-1 text-sm text-red-500">{mutateSuffixesErrors.customerIds}</p>}
+                  </div>
+                  <button 
+                    type="submit" 
+                    className="w-full bg-primary text-white font-bold py-2 px-4 rounded-md hover:bg-primary/90 disabled:bg-gray-500 transition-colors"
+                    disabled={isAuthorizing || isSubmittingSuffixes}
+                  >
+                    {isAuthorizing ? 'Authorizing...' : 'Authorize'}
+                  </button>
+                </form>
+
+                {/* Right Form: Submit Suffixes */}
+                <form id="submitSuffixesForm" onSubmit={handleSuffixesSubmit} className="space-y-6">
+                  <div>
+                    <label htmlFor="customerId" className="block text-sm font-medium text-gray-300 mb-1">
+                      Customer ID
+                    </label>
+                    <input
+                      type="text"
+                      id="customerId"
+                      name="customerId"
+                      value={mutateSuffixesSubmitData.customerId}
+                      onChange={handleMutateSuffixesInputChange}
+                      required
+                      className={`w-full bg-dark border rounded-md px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary ${mutateSuffixesErrors.customerId ? 'border-red-500' : 'border-gray-600'}`}
+                      placeholder="111-111-1111"
+                    />
+                    {mutateSuffixesErrors.customerId && <p className="mt-1 text-sm text-red-500">{mutateSuffixesErrors.customerId}</p>}
+                  </div>
+                  <div>
+                    <label htmlFor="suffixes" className="block text-sm font-medium text-gray-300 mb-1">
+                      Final URL Suffixes (one per line)
+                    </label>
+                    <textarea
+                      id="suffixes"
+                      name="suffixes"
+                      value={mutateSuffixesSubmitData.suffixes}
+                      onChange={handleMutateSuffixesInputChange}
+                      required
+                      rows={5}
+                      className="w-full bg-dark border rounded-md px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="suffix1=value1\nsuffix2=value2"
+                    />
+                     {mutateSuffixesErrors.suffixes && <p className="mt-1 text-sm text-red-500">{mutateSuffixesErrors.suffixes}</p>}
+                  </div>
+                  <button 
+                    type="submit" 
+                    className="w-full bg-primary text-white font-bold py-2 px-4 rounded-md hover:bg-primary/90 disabled:bg-gray-500 transition-colors"
+                    disabled={isAuthorizing || isSubmittingSuffixes}
+                  >
+                    {isSubmittingSuffixes ? 'Submitting...' : 'Submit'}
+                  </button>
+                </form>
+              </div>
             )}
           </div>
         </div>
@@ -710,7 +885,7 @@ export default function Home() {
           </div>
         )}
 
-        {activeTab !== 'clickFarming' && (
+        {activeTab !== 'clickFarming' && activeTab !== 'mutateSuffixes' && (
           <>
             {submissionStatus && (
               <div className="bg-secondary/20 border border-secondary/40 rounded-lg p-4 text-center text-secondary animate-fade-in">
@@ -751,6 +926,13 @@ export default function Home() {
             </div>
           </>
         )}
+      <Modal 
+          isOpen={modalState.isOpen} 
+          onClose={() => setModalState({ isOpen: false, title: '', content: '' })} 
+          title={modalState.title}
+        >
+          <pre className="whitespace-pre-wrap text-sm">{modalState.content}</pre>
+        </Modal>
       </div>
     </main>
   );
