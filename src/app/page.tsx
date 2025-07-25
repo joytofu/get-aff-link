@@ -829,7 +829,7 @@ export default function Home() {
                       required
                       rows={5}
                       className="w-full bg-dark border rounded-md px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="suffix1=value1\nsuffix2=value2"
+                      placeholder="suffix1=value1&suffix2=value2"
                     />
                      {mutateSuffixesErrors.suffixes && <p className="mt-1 text-sm text-red-500">{mutateSuffixesErrors.suffixes}</p>}
                   </div>
