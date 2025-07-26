@@ -26,6 +26,7 @@ export default function Home() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [mutateSuffixesErrors, setMutateSuffixesErrors] = useState<Record<string, string>>({});
   const [modalState, setModalState] = useState({ isOpen: false, title: '', content: '' });
+  const [copiedMessageIndex, setCopiedMessageIndex] = useState<number | null>(null);
   const [showNotification, setShowNotification] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState('');
   const [clientId, setClientId] = useState<string | null>(null);
@@ -298,7 +299,7 @@ export default function Home() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent, endpoint: string, payload: object) => {
+  const handleSubmit = async (e: React.FormEvent, endpoint: string, payload: object, clearForm: boolean = false) => {
     e.preventDefault();
     if (!clientId) {
         setNotificationMessage('WebSocket is not connected. Please wait.');
@@ -315,7 +316,9 @@ export default function Home() {
         setShowNotification(true);
         setTimeout(() => setShowNotification(false), 3000);
         setSubmissionStatus('Job successfully submitted. Waiting for processing...');
-        setFormData({ refreshProxyUrl: '', affLink: '', proxiesList: '' });
+        if (clearForm) {
+          setFormData({ refreshProxyUrl: '', affLink: '', proxiesList: '' });
+        }
     } catch (error) {
         console.error('Submission failed:', error);
         setSubmissionStatus('Submission failed. Please check the console and try again.');
@@ -328,7 +331,7 @@ export default function Home() {
       client_id: clientId,
       init_url: formData.affLink,
       refresh_proxy_url: formData.refreshProxyUrl
-    });
+    }, false);
   };
 
   const handleProxyListSubmit = (e: React.FormEvent) => {
@@ -336,7 +339,7 @@ export default function Home() {
       client_id: clientId,
       init_url: formData.affLink,
       proxies: formData.proxiesList.split('\n').filter(line => line.trim() !== '')
-    });
+    }, false);
   };
 
   // 添加Click Farming表单处理函数
