@@ -51,6 +51,11 @@ const SuffixTogglePage = () => {
               />
             </div>
             <div className="mb-4">
+              <label htmlFor="affiliateLink" className="block text-gray-300 mb-2">Affiliate Link</label>
+              <input type="text" id="affiliateLink" className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white focus:outline-none focus:border-emerald-500" 
+              />
+            </div>
+            <div className="mb-4">
               <label htmlFor="fetchCount" className="block text-gray-300 mb-2">Number of Final Params to Fetch</label>
               <input type="number" id="fetchCount" className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white focus:outline-none focus:border-emerald-500"
               placeholder='4'
