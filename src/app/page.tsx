@@ -526,6 +526,16 @@ export default function Home() {
     }
   };
 
+  const handleCopyFinalParams = (text: string, index: number) => {
+    const paramsToCopy = text.substring(text.indexOf('Final Params:') + 'Final Params:'.length).trim();
+    navigator.clipboard.writeText(paramsToCopy).then(() => {
+      setCopiedMessageIndex(index);
+      setTimeout(() => setCopiedMessageIndex(null), 2000);
+    }).catch(err => {
+      console.error('Failed to copy text: ', err);
+    });
+  };
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4 sm:p-6 lg:p-8 bg-gradient-to-br from-dark to-dark-light">
       <div className="w-full max-w-3xl space-y-8">
@@ -903,10 +913,17 @@ export default function Home() {
                   processingMessages.map((msg, index) => (
                     <div key={index} className="py-1 border-b border-gray-800 last:border-0 flex items-start">
                       <span className="text-gray-500 mr-2">[{new Date(msg.timestamp!).toLocaleTimeString()}]</span>
-                      <span className="flex-1 whitespace-pre-wrap">{msg.message}</span>
-                      {msg.message.includes('Final Params') && (
-                        <span className="text-green-400 ml-2 self-center">✓ Done</span>
+                      {msg.message.includes('Final Params:') && (
+                        <div className="mr-2 flex-shrink-0">
+                          <button 
+                            onClick={() => handleCopyFinalParams(msg.message, index)}
+                            className="px-2 py-1 text-xs bg-primary hover:bg-primary/90 rounded-md text-white transition-all"
+                          >
+                            {copiedMessageIndex === index ? 'Copied!' : 'Copy'}
+                          </button>
+                        </div>
                       )}
+                      <span className="flex-1 whitespace-pre-wrap">{msg.message}</span>
                       {msg.message.includes('Mission Aborted') && (
                         <span className="text-red-400 ml-2 self-center">✗ Failed</span>
                       )}
