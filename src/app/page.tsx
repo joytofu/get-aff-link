@@ -677,7 +677,7 @@ export default function Home() {
                     onChange={handleClickFarmingInputChange}
                     required
                     className={`w-full bg-dark border rounded-md px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary ${formErrors.proxy ? 'border-red-500' : 'border-gray-600'}`}
-                    placeholder="host:port:user:port"
+                    placeholder="host:port:user:pass"
                   />
                   {formErrors.proxy && <p className="mt-1 text-sm text-red-500">{formErrors.proxy}</p>}
                 </div>
