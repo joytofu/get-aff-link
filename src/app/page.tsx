@@ -4,9 +4,92 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import Modal from './components/Modal'; // 引入Modal组件
 
+const SuffixTogglePage = () => {
+  const [isAutomatic, setIsAutomatic] = useState(true);
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+            <div className="flex justify-center mb-8">
+        <div className="flex space-x-1 rounded-lg bg-gray-800 p-1 border border-gray-700">
+          <button
+            className={`px-6 py-2 text-sm font-semibold rounded-md transition-all duration-300 ease-in-out ${
+              isAutomatic
+                ? 'bg-primary text-white shadow-md'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            }`}
+            onClick={() => setIsAutomatic(true)}
+          >
+            Automatic
+          </button>
+          <button
+            className={`px-6 py-2 text-sm font-semibold rounded-md transition-all duration-300 ease-in-out ${
+              !isAutomatic
+                ? 'bg-primary text-white shadow-md'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            }`}
+            onClick={() => setIsAutomatic(false)}
+          >
+            Manual
+          </button>
+        </div>
+      </div>
+
+      {isAutomatic ? (
+        <div className="mx-auto bg-gray-900 p-8 rounded-lg">
+          <h2 className="text-2xl font-bold text-white mb-6">Automatic Form</h2>
+          <form>
+            <div className="mb-4">
+              <label htmlFor="customerId" className="block text-gray-300 mb-2">Customer ID</label>
+              <input type="text" id="customerId" className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white focus:outline-none focus:border-emerald-500" 
+              placeholder="Enter customer ID, format: 111-111-1111 or 1111111111" 
+              />
+            </div>
+            <div className="mb-4">
+              <label htmlFor="proxyAddress" className="block text-gray-300 mb-2">Proxy Address</label>
+              <input type="text" id="proxyAddress" className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white focus:outline-none focus:border-emerald-500" 
+              placeholder='host:port:user:pass'
+              />
+            </div>
+            <div className="mb-4">
+              <label htmlFor="fetchCount" className="block text-gray-300 mb-2">Number of Final Params to Fetch</label>
+              <input type="number" id="fetchCount" className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white focus:outline-none focus:border-emerald-500"
+              placeholder='4'
+              />
+            </div>
+            <button type="submit" className="w-full bg-primary text-white font-bold py-2 px-4 rounded-md hover:bg-primary/90 disabled:bg-gray-500 transition-colors">Submit</button>
+          </form>
+          <div className="mt-8 p-4 bg-gray-800 rounded-md text-gray-300">
+            {/* Processing results will be displayed here */}
+            Results will be shown here...
+          </div>
+        </div>
+      ) : (
+        <div className="mx-auto bg-gray-900 p-8 rounded-lg">
+          <h2 className="text-2xl font-bold text-white mb-6">Manual Form</h2>
+          <form>
+            <div className="mb-4">
+              <label htmlFor="manualCustomerId" className="block text-gray-300 mb-2">Customer ID</label>
+              <input type="text" id="manualCustomerId" className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white focus:outline-none focus:border-emerald-500" 
+              placeholder="Enter customer ID, format: 111-111-1111 or 1111111111"
+              />
+            </div>
+            <div className="mb-4">
+              <label htmlFor="finalUrlSuffixes" className="block text-gray-300 mb-2">Final URL Suffixes (one per line)</label>
+              <textarea id="finalUrlSuffixes" rows={5} className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white focus:outline-none focus:border-emerald-500"
+              placeholder="suffix1=value1&suffix2=value2"
+              ></textarea>
+            </div>
+            <button type="submit" className="w-full bg-primary text-white font-bold py-2 px-4 rounded-md hover:bg-primary/90 disabled:bg-gray-500 transition-colors">Submit</button>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function Home() {
   // 添加新的标签页类型
-  const [activeTab, setActiveTab] = useState<'refresh' | 'proxy' | 'clickFarming' | 'mutateSuffixes'>('refresh');
+  const [activeTab, setActiveTab] = useState<'refresh' | 'proxy' | 'clickFarming' | 'mutateSuffixes' | 'suffixToggle'>('refresh');
   const [formData, setFormData] = useState({
     refreshProxyUrl: '',
     affLink: '',
@@ -590,6 +673,12 @@ export default function Home() {
               className={`flex-1 py-4 px-6 text-center font-semibold transition-all ${activeTab === 'mutateSuffixes' ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'bg-dark-light text-gray-400 hover:bg-dark-light/80'}`}
               onClick={() => setActiveTab('mutateSuffixes')}
             >
+              Authorization
+            </button>
+            <button
+              className={`flex-1 py-4 px-6 text-center font-semibold transition-all ${activeTab === 'suffixToggle' ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'bg-dark-light text-gray-400 hover:bg-dark-light/80'}`}
+              onClick={() => setActiveTab('suffixToggle')}
+            >
               Mutate Suffixes
             </button>
           </div>
@@ -783,8 +872,8 @@ export default function Home() {
                   {taskStatus === 'running' ? 'Task Running...' : (isSubmitting ? 'Processing...' : 'Start')}
                 </button>
               </form>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            ) : activeTab === 'mutateSuffixes' ? (
+              <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
                 {/* Left Form: Authorize */}
                 <form id="authorizeForm" onSubmit={handleAuthorizeSubmit} className="space-y-6">
                   <div>
@@ -811,50 +900,9 @@ export default function Home() {
                     {isAuthorizing ? 'Authorizing...' : 'Authorize'}
                   </button>
                 </form>
-
-                {/* Right Form: Submit Suffixes */}
-                <form id="submitSuffixesForm" onSubmit={handleSuffixesSubmit} className="space-y-6">
-                  <div>
-                    <label htmlFor="customerId" className="block text-sm font-medium text-gray-300 mb-1">
-                      Customer ID
-                    </label>
-                    <input
-                      type="text"
-                      id="customerId"
-                      name="customerId"
-                      value={mutateSuffixesSubmitData.customerId}
-                      onChange={handleMutateSuffixesInputChange}
-                      required
-                      className={`w-full bg-dark border rounded-md px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary ${mutateSuffixesErrors.customerId ? 'border-red-500' : 'border-gray-600'}`}
-                      placeholder="111-111-1111"
-                    />
-                    {mutateSuffixesErrors.customerId && <p className="mt-1 text-sm text-red-500">{mutateSuffixesErrors.customerId}</p>}
-                  </div>
-                  <div>
-                    <label htmlFor="suffixes" className="block text-sm font-medium text-gray-300 mb-1">
-                      Final URL Suffixes (one per line)
-                    </label>
-                    <textarea
-                      id="suffixes"
-                      name="suffixes"
-                      value={mutateSuffixesSubmitData.suffixes}
-                      onChange={handleMutateSuffixesInputChange}
-                      required
-                      rows={5}
-                      className="w-full bg-dark border rounded-md px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="suffix1=value1&suffix2=value2"
-                    />
-                     {mutateSuffixesErrors.suffixes && <p className="mt-1 text-sm text-red-500">{mutateSuffixesErrors.suffixes}</p>}
-                  </div>
-                  <button 
-                    type="submit" 
-                    className="w-full bg-primary text-white font-bold py-2 px-4 rounded-md hover:bg-primary/90 disabled:bg-gray-500 transition-colors"
-                    disabled={isAuthorizing || isSubmittingSuffixes}
-                  >
-                    {isSubmittingSuffixes ? 'Submitting...' : 'Submit'}
-                  </button>
-                </form>
               </div>
+            ) : (
+              <SuffixTogglePage />
             )}
           </div>
         </div>
@@ -898,7 +946,7 @@ export default function Home() {
           </div>
         )}
 
-        {activeTab !== 'clickFarming' && activeTab !== 'mutateSuffixes' && (
+        {activeTab !== 'clickFarming' && activeTab !== 'mutateSuffixes' && activeTab !== 'suffixToggle' && (
           <>
             {submissionStatus && (
               <div className="bg-secondary/20 border border-secondary/40 rounded-lg p-4 text-center text-secondary animate-fade-in">
