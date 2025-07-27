@@ -48,7 +48,7 @@ const SuffixTogglePage = ({
 
       {isAutomatic ? (
         <div className="mx-auto bg-gray-900 p-8 rounded-lg">
-          <h2 className="text-2xl font-bold text-white mb-6">Automatic Form</h2>
+          
           <form onSubmit={handleAutomaticSubmit}>
             <div className="mb-4">
               <label htmlFor="customerId" className="block text-gray-300 mb-2">Customer ID</label>
@@ -80,7 +80,7 @@ const SuffixTogglePage = ({
         </div>
       ) : (
         <div className="mx-auto bg-gray-900 p-8 rounded-lg">
-          <h2 className="text-2xl font-bold text-white mb-6">Manual Form</h2>
+        
           <form id="submitSuffixesForm" onSubmit={handleSuffixesSubmit}>
             <div className="mb-4">
               <label htmlFor="manualCustomerId" className="block text-gray-300 mb-2">Customer ID</label>
