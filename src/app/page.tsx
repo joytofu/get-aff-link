@@ -4,12 +4,24 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import Modal from './components/Modal'; // 引入Modal组件
 
-const SuffixTogglePage = () => {
+const SuffixTogglePage = ({
+  automaticFormData,
+  handleAutomaticInputChange,
+  handleAutomaticSubmit,
+  isSubmittingAutomatic,
+  suffixToggleMessages,
+  mutateSuffixesSubmitData,
+  handleMutateSuffixesInputChange,
+  handleSuffixesSubmit,
+  isSubmittingSuffixes,
+  mutateSuffixesErrors,
+  connectionStatus
+}: any) => {
   const [isAutomatic, setIsAutomatic] = useState(true);
 
   return (
     <div className="container mx-auto px-4 py-8">
-            <div className="flex justify-center mb-8">
+      <div className="flex justify-center mb-8">
         <div className="flex space-x-1 rounded-lg bg-gray-800 p-1 border border-gray-700">
           <button
             className={`px-6 py-2 text-sm font-semibold rounded-md transition-all duration-300 ease-in-out ${
@@ -37,55 +49,86 @@ const SuffixTogglePage = () => {
       {isAutomatic ? (
         <div className="mx-auto bg-gray-900 p-8 rounded-lg">
           <h2 className="text-2xl font-bold text-white mb-6">Automatic Form</h2>
-          <form>
+          <form onSubmit={handleAutomaticSubmit}>
             <div className="mb-4">
               <label htmlFor="customerId" className="block text-gray-300 mb-2">Customer ID</label>
-              <input type="text" id="customerId" className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white focus:outline-none focus:border-emerald-500" 
+              <input type="text" id="customerId" value={automaticFormData.customerId} onChange={handleAutomaticInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white focus:outline-none focus:border-emerald-500" 
               placeholder="Enter customer ID, format: 111-111-1111 or 1111111111" 
               />
             </div>
             <div className="mb-4">
               <label htmlFor="proxyAddress" className="block text-gray-300 mb-2">Proxy Address</label>
-              <input type="text" id="proxyAddress" className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white focus:outline-none focus:border-emerald-500" 
+              <input type="text" id="proxyAddress" value={automaticFormData.proxyAddress} onChange={handleAutomaticInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white focus:outline-none focus:border-emerald-500" 
               placeholder='host:port:user:pass'
               />
             </div>
             <div className="mb-4">
               <label htmlFor="affiliateLink" className="block text-gray-300 mb-2">Affiliate Link</label>
-              <input type="text" id="affiliateLink" className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white focus:outline-none focus:border-emerald-500" 
+              <input type="text" id="affiliateLink" value={automaticFormData.affiliateLink} onChange={handleAutomaticInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white focus:outline-none focus:border-emerald-500" 
               />
             </div>
             <div className="mb-4">
               <label htmlFor="fetchCount" className="block text-gray-300 mb-2">Number of Final Params to Fetch</label>
-              <input type="number" id="fetchCount" className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white focus:outline-none focus:border-emerald-500"
+              <input type="number" id="fetchCount" value={automaticFormData.fetchCount} onChange={handleAutomaticInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white focus:outline-none focus:border-emerald-500"
               placeholder='4'
               />
             </div>
-            <button type="submit" className="w-full bg-primary text-white font-bold py-2 px-4 rounded-md hover:bg-primary/90 disabled:bg-gray-500 transition-colors">Submit</button>
+            <button type="submit" className="w-full bg-primary text-white font-bold py-2 px-4 rounded-md hover:bg-primary/90 disabled:bg-gray-500 transition-colors" disabled={isSubmittingAutomatic || connectionStatus !== 'connected'}>
+              {isSubmittingAutomatic ? 'Processing...' : 'Submit'}
+            </button>
           </form>
-          <div className="mt-8 p-4 bg-gray-800 rounded-md text-gray-300">
-            {/* Processing results will be displayed here */}
-            Results will be shown here...
-          </div>
         </div>
       ) : (
         <div className="mx-auto bg-gray-900 p-8 rounded-lg">
           <h2 className="text-2xl font-bold text-white mb-6">Manual Form</h2>
-          <form>
+          <form id="submitSuffixesForm" onSubmit={handleSuffixesSubmit}>
             <div className="mb-4">
               <label htmlFor="manualCustomerId" className="block text-gray-300 mb-2">Customer ID</label>
-              <input type="text" id="manualCustomerId" className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white focus:outline-none focus:border-emerald-500" 
-              placeholder="Enter customer ID, format: 111-111-1111 or 1111111111"
+              <input 
+                type="text" 
+                id="manualCustomerId" 
+                name="customerId" 
+                value={mutateSuffixesSubmitData.customerId} 
+                onChange={handleMutateSuffixesInputChange} 
+                className={`w-full bg-gray-800 border rounded-md py-2 px-3 text-white focus:outline-none focus:border-emerald-500 ${mutateSuffixesErrors.customerId ? 'border-red-500' : 'border-gray-700'}`}
+                placeholder="Enter customer ID, format: 111-111-1111 or 1111111111"
               />
+              {mutateSuffixesErrors.customerId && <p className="mt-1 text-sm text-red-500">{mutateSuffixesErrors.customerId}</p>}
             </div>
             <div className="mb-4">
               <label htmlFor="finalUrlSuffixes" className="block text-gray-300 mb-2">Final URL Suffixes (one per line)</label>
-              <textarea id="finalUrlSuffixes" rows={5} className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white focus:outline-none focus:border-emerald-500"
-              placeholder="suffix1=value1&suffix2=value2"
+              <textarea 
+                id="finalUrlSuffixes" 
+                name="suffixes" 
+                rows={5} 
+                value={mutateSuffixesSubmitData.suffixes} 
+                onChange={handleMutateSuffixesInputChange} 
+                className={`w-full bg-gray-800 border rounded-md py-2 px-3 text-white focus:outline-none focus:border-emerald-500 ${mutateSuffixesErrors.suffixes ? 'border-red-500' : 'border-gray-700'}`}
+                placeholder="suffix1=value1&suffix2=value2"
               ></textarea>
+              {mutateSuffixesErrors.suffixes && <p className="mt-1 text-sm text-red-500">{mutateSuffixesErrors.suffixes}</p>}
             </div>
-            <button type="submit" className="w-full bg-primary text-white font-bold py-2 px-4 rounded-md hover:bg-primary/90 disabled:bg-gray-500 transition-colors">Submit</button>
+            <button type="submit" className="w-full bg-primary text-white font-bold py-2 px-4 rounded-md hover:bg-primary/90 disabled:bg-gray-500 transition-colors" disabled={isSubmittingSuffixes}>
+              {isSubmittingSuffixes ? 'Submitting...' : 'Submit'}
+            </button>
           </form>
+        </div>
+      )}
+      {isAutomatic && (
+        <div className="mt-8 bg-dark-light rounded-xl p-6 border border-gray-700">
+          <h2 className="text-lg font-medium text-gray-300 mb-4">Processing Results</h2>
+          <div className="min-h-[100px] max-h-[300px] overflow-y-auto border border-gray-700 rounded-lg p-4 bg-dark text-sm text-gray-300 space-y-2 font-mono">
+            {suffixToggleMessages.length > 0 ? (
+              suffixToggleMessages.map((msg: any, index: number) => (
+                <div key={index} className="py-1 border-b border-gray-800 last:border-0 flex items-start">
+                  <span className="text-gray-500 mr-2">[{new Date(msg.timestamp!).toLocaleTimeString()}]</span>
+                  <span className="flex-1 whitespace-pre-wrap">{msg.message}</span>
+                </div>
+              ))
+            ) : (
+              <p className="text-gray-500">Waiting for backend processing...</p>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -130,6 +173,15 @@ export default function Home() {
   const [completedCount, setCompletedCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [sseMessages, setSseMessages] = useState<Array<{type: string; data: string; timestamp: string}>>([]);
+  const [suffixToggleMessages, setSuffixToggleMessages] = useState<Array<{type: string; message: string; timestamp?: string}>>([]);
+  const [automaticFormData, setAutomaticFormData] = useState({
+    customerId: '',
+    proxyAddress: '',
+    affiliateLink: '',
+    fetchCount: '4'
+  });
+  const [isSubmittingAutomatic, setIsSubmittingAutomatic] = useState<boolean>(false);
+  const [currentJobType, setCurrentJobType] = useState<'proxy' | 'automatic' | null>(null);
 
   const socketRef = useRef<WebSocket | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -139,6 +191,7 @@ export default function Home() {
   const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastPongRef = useRef<number>(0);
   const isUnmountingRef = useRef(false);
+  const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const cleanupConnection = useCallback(() => {
     if (socketRef.current) {
@@ -167,6 +220,10 @@ export default function Home() {
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;
+    }
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
+      inactivityTimerRef.current = null;
     }
   }, []);
 
@@ -249,7 +306,29 @@ export default function Home() {
                 setClientId(data.payload);
                 localStorage.setItem('ws_client_id', data.payload);
               } else if (data.type === 'PROCESSING') {
-                setProcessingMessages(prev => [...prev, { type: 'PROCESSING', message: data.data, timestamp: new Date().toISOString() }]);
+                if (inactivityTimerRef.current) {
+                    clearTimeout(inactivityTimerRef.current);
+                }
+                inactivityTimerRef.current = setTimeout(() => {
+                    setIsSubmittingAutomatic(false);
+                    console.log('Re-enabling submit button due to inactivity.');
+                }, 20000);
+
+                if (typeof data.data === 'string' && data.data.includes('Successfully')) {
+                    setIsSubmittingAutomatic(false);
+                    if (inactivityTimerRef.current) {
+                        clearTimeout(inactivityTimerRef.current);
+                        inactivityTimerRef.current = null;
+                    }
+                }
+
+                const message = { type: 'PROCESSING', message: data.data, timestamp: new Date().toISOString() };
+                if (data.before_mutation === true) {
+                    setSuffixToggleMessages(prev => [...prev, message]);
+                } else if (data.before_mutation === false || data.before_mutation === undefined) {
+                    setProcessingMessages(prev => [...prev, message]);
+                }
+
                 if (data.data?.includes('Final Params')) {
                   setIsSubmitting(false);
                   setSubmissionStatus('Job Done!');
@@ -415,6 +494,7 @@ export default function Home() {
   };
 
   const handleRefreshProxySubmit = (e: React.FormEvent) => {
+    setCurrentJobType('proxy');
     handleSubmit(e, '/job/refresh-proxy', {
       client_id: clientId,
       init_url: formData.affLink,
@@ -423,6 +503,7 @@ export default function Home() {
   };
 
   const handleProxyListSubmit = (e: React.FormEvent) => {
+    setCurrentJobType('proxy');
     handleSubmit(e, '/job/proxy-list', {
       client_id: clientId,
       init_url: formData.affLink,
@@ -614,6 +695,57 @@ export default function Home() {
     }
   };
 
+  const handleAutomaticInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setAutomaticFormData(prev => ({ ...prev, [id]: value }));
+  };
+
+  const handleAutomaticSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!clientId) {
+        setNotificationMessage('WebSocket is not connected. Please wait.');
+        setShowNotification(true);
+        setTimeout(() => setShowNotification(false), 3000);
+        return;
+    }
+    setSuffixToggleMessages([]);
+    setIsSubmittingAutomatic(true);
+    setCurrentJobType('automatic');
+
+    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+    inactivityTimerRef.current = setTimeout(() => {
+        setIsSubmittingAutomatic(false);
+        setNotificationMessage('Request timed out. Re-enabling form.');
+        setShowNotification(true);
+        setTimeout(() => setShowNotification(false), 3000);
+    }, 20000);
+
+    try {
+        const payload = {
+            client_id: clientId,
+            customer_id: automaticFormData.customerId,
+            proxy: automaticFormData.proxyAddress,
+            affiliate_link: automaticFormData.affiliateLink,
+            fetch_count: parseInt(automaticFormData.fetchCount, 10)
+        };
+        const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/job/params-suffixes`, payload);
+        setNotificationMessage(response.data.data || 'Job submitted successfully!');
+        setShowNotification(true);
+        setTimeout(() => setShowNotification(false), 2000);
+    } catch (error) {
+        console.error('Automatic form submission failed:', error);
+        const errorMessage = axios.isAxiosError(error) && error.response ? JSON.stringify(error.response.data) : 'An unexpected error occurred.';
+        setNotificationMessage(`Error: ${errorMessage}`);
+        setShowNotification(true);
+        setTimeout(() => setShowNotification(false), 5000);
+        setIsSubmittingAutomatic(false);
+        if (inactivityTimerRef.current) {
+            clearTimeout(inactivityTimerRef.current);
+            inactivityTimerRef.current = null;
+        }
+    }
+  };
+
   const handleCopyFinalParams = (text: string, index: number) => {
     const paramsToCopy = text.substring(text.indexOf('Final Params:') + 'Final Params:'.length).trim();
     navigator.clipboard.writeText(paramsToCopy).then(() => {
@@ -741,9 +873,7 @@ export default function Home() {
                     required
                     rows={6}
                     className="w-full bg-dark border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="host:port:user:pass
-192.168.1.1:8080:user1:pass1
-192.168.1.2:8080:user2:pass2"
+                    placeholder="host:port:user:pass\n192.168.1.1:8080:user1:pass1\n192.168.1.2:8080:user2:pass2"
                   />
                 </div>
 
@@ -906,9 +1036,21 @@ export default function Home() {
                   </button>
                 </form>
               </div>
-            ) : (
-              <SuffixTogglePage />
-            )}
+            ) : activeTab === 'suffixToggle' ? (
+              <SuffixTogglePage
+                automaticFormData={automaticFormData}
+                handleAutomaticInputChange={handleAutomaticInputChange}
+                handleAutomaticSubmit={handleAutomaticSubmit}
+                isSubmittingAutomatic={isSubmittingAutomatic}
+                suffixToggleMessages={suffixToggleMessages}
+                mutateSuffixesSubmitData={mutateSuffixesSubmitData}
+                handleMutateSuffixesInputChange={handleMutateSuffixesInputChange}
+                handleSuffixesSubmit={handleSuffixesSubmit}
+                isSubmittingSuffixes={isSubmittingSuffixes}
+                mutateSuffixesErrors={mutateSuffixesErrors}
+                connectionStatus={connectionStatus}
+              />
+            ) : null}
           </div>
         </div>
 
