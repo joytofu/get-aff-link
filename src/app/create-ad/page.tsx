@@ -46,12 +46,40 @@ const CreateAdPage = () => {
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
+    const urlRegex = /^(https?:\/\/[^\s$.?#].[^\s]*)$/i;
+
     if (!formData.productName) newErrors.productName = 'Product Name is required';
-    if (!formData.websiteUrl) newErrors.websiteUrl = 'Website URL is required';
-    if (!formData.affiliateLink) newErrors.affiliateLink = 'Affiliate Link is required';
+    if (!formData.websiteUrl) {
+      newErrors.websiteUrl = 'Website URL is required';
+    } else if (!urlRegex.test(formData.websiteUrl)) {
+      newErrors.websiteUrl = 'Please enter a valid URL';
+    }
+    if (!formData.affiliateLink) {
+      newErrors.affiliateLink = 'Affiliate Link is required';
+    } else if (!urlRegex.test(formData.affiliateLink)) {
+      newErrors.affiliateLink = 'Please enter a valid URL';
+    }
     if (!formData.customerId) newErrors.customerId = 'Customer ID is required';
     if (!formData.keywords) newErrors.keywords = 'Keywords are required';
     if (formData.useTracker === 'No' && !formData.proxy) newErrors.proxy = 'Proxy is required when not using tracker';
+
+    if (!formData.campaignCount) {
+      newErrors.campaignCount = 'Campaign Count is required';
+    } else if (!/^[1-9]\d*$/.test(formData.campaignCount)) {
+      newErrors.campaignCount = 'Campaign Count must be an integer greater than 0';
+    }
+
+    if (!formData.dailyBudget) {
+      newErrors.dailyBudget = 'Daily Budget is required';
+    } else if (parseFloat(formData.dailyBudget) <= 0) {
+      newErrors.dailyBudget = 'Daily Budget must be greater than 0';
+    }
+
+    if (!formData.maxBiddingPrice) {
+      newErrors.maxBiddingPrice = 'Max Bidding Price is required';
+    } else if (parseFloat(formData.maxBiddingPrice) <= 0) {
+      newErrors.maxBiddingPrice = 'Max Bidding Price must be greater than 0';
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -265,9 +293,9 @@ const CreateAdPage = () => {
 
               <InputField icon={<FiLink />} label="Website URL" name="websiteUrl" type="url" value={formData.websiteUrl} onChange={handleInputChange} placeholder="https://yourproduct.com" error={errors.websiteUrl} />
 
-              <InputField icon={<FiTarget />} label="Campaign Count" name="campaignCount" type="number" value={formData.campaignCount} onChange={handleInputChange} placeholder="e.g., 10" />
+              <InputField icon={<FiTarget />} label="Campaign Count" name="campaignCount" type="number" value={formData.campaignCount} onChange={handleInputChange} placeholder="e.g., 10" error={errors.campaignCount} />
 
-              <InputField icon={<FiDollarSign />} label="Daily Budget" name="dailyBudget" type="number" value={formData.dailyBudget} onChange={handleInputChange} placeholder="e.g., 50.00" />
+              <InputField icon={<FiDollarSign />} label="Daily Budget" name="dailyBudget" type="number" value={formData.dailyBudget} onChange={handleInputChange} placeholder="e.g., 50.00" error={errors.dailyBudget} />
 
               <TextareaField icon={<FiGlobe />} label="Target Countries" name="targetCountries" value={formData.targetCountries} onChange={handleInputChange} placeholder="US, CA, GB" />
 
@@ -286,20 +314,25 @@ const CreateAdPage = () => {
 
               <InputField icon={<FiKey />} label="Proxy" name="proxy" value={formData.proxy} onChange={handleInputChange} placeholder="host:port:user:pass" disabled={formData.useTracker === 'Yes'} error={errors.proxy} />
 
-              <InputField icon={<FiDollarSign />} label="Max Bidding Price" name="maxBiddingPrice" type="number" value={formData.maxBiddingPrice} onChange={handleInputChange} placeholder="e.g., 0.75" />             
+              <InputField icon={<FiDollarSign />} label="Max Bidding Price" name="maxBiddingPrice" type="number" value={formData.maxBiddingPrice} onChange={handleInputChange} placeholder="e.g., 0.75" error={errors.maxBiddingPrice} />             
               
               <TextareaField icon={<FiXCircle />} label="Excluded Countries" name="excludedCountries" value={formData.excludedCountries} onChange={handleInputChange} placeholder="US, FR, DE" />
               
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Use Tracker</label>
-                <div className="relative flex items-center">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    {formData.useTracker === 'Yes' ? <FiToggleRight /> : <FiToggleLeft />}
-                  </div>
-                  <select name="useTracker" value={formData.useTracker} onChange={handleInputChange} className="w-full bg-gray-700 border border-gray-600 rounded-lg pl-10 pr-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-primary transition-all duration-300">
-                    <option value="No">No</option>
-                    <option value="Yes">Yes</option>
-                  </select>
+                <div className="flex items-center">
+                  <label htmlFor="useTrackerToggle" className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      id="useTrackerToggle" 
+                      className="sr-only peer" 
+                      checked={formData.useTracker === 'Yes'}
+                      onChange={() => setFormData(prev => ({ ...prev, useTracker: prev.useTracker === 'Yes' ? 'No' : 'Yes' }))}
+                    />
+                    <div className="w-11 h-6 bg-gray-600 rounded-full peer peer-focus:ring-4 peer-focus:ring-primary/50 peer-checked:bg-primary"></div>
+                    <div className="absolute left-1 top-1 bg-white border-gray-300 border rounded-full h-4 w-4 transition-all peer-checked:translate-x-full peer-checked:border-white"></div>
+                  </label>
+                  <span className="ml-3 text-sm font-medium text-gray-300">{formData.useTracker}</span>
                 </div>
               </div>
             </div>
