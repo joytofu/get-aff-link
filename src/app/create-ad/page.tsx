@@ -49,6 +49,7 @@ const CreateAdPage = () => {
     const urlRegex = /^(https?:\/\/[^\s$.?#].[^\s]*)$/i;
 
     if (!formData.productName) newErrors.productName = 'Product Name is required';
+    if (!formData.customerId) newErrors.customerId = 'Customer ID is required';
     if (!formData.websiteUrl) {
       newErrors.websiteUrl = 'Website URL is required';
     } else if (!urlRegex.test(formData.websiteUrl)) {
@@ -59,25 +60,18 @@ const CreateAdPage = () => {
     } else if (!urlRegex.test(formData.affiliateLink)) {
       newErrors.affiliateLink = 'Please enter a valid URL';
     }
-    if (!formData.customerId) newErrors.customerId = 'Customer ID is required';
+    if (!formData.proxy) newErrors.proxy = 'Proxy is required';
     if (!formData.keywords) newErrors.keywords = 'Keywords are required';
-    if (formData.useTracker === 'No' && !formData.proxy) newErrors.proxy = 'Proxy is required when not using tracker';
 
-    if (!formData.campaignCount) {
-      newErrors.campaignCount = 'Campaign Count is required';
-    } else if (!/^[1-9]\d*$/.test(formData.campaignCount)) {
+    if (formData.campaignCount && !/^[1-9]\d*$/.test(formData.campaignCount)) {
       newErrors.campaignCount = 'Campaign Count must be an integer greater than 0';
     }
 
-    if (!formData.dailyBudget) {
-      newErrors.dailyBudget = 'Daily Budget is required';
-    } else if (parseFloat(formData.dailyBudget) <= 0) {
+    if (formData.dailyBudget && parseFloat(formData.dailyBudget) <= 0) {
       newErrors.dailyBudget = 'Daily Budget must be greater than 0';
     }
 
-    if (!formData.maxBiddingPrice) {
-      newErrors.maxBiddingPrice = 'Max Bidding Price is required';
-    } else if (parseFloat(formData.maxBiddingPrice) <= 0) {
+    if (formData.maxBiddingPrice && parseFloat(formData.maxBiddingPrice) <= 0) {
       newErrors.maxBiddingPrice = 'Max Bidding Price must be greater than 0';
     }
 
@@ -98,7 +92,7 @@ const CreateAdPage = () => {
 
     setIsSubmitting(true);
     setJobRunning(true);
-    setProcessingMessages([]);
+    setProcessingMessages(['Processing, please wait...']);
 
     try {
       const payload = {
@@ -131,8 +125,7 @@ const CreateAdPage = () => {
       setShowNotification(true);
       setTimeout(() => setShowNotification(false), 5000);
       setJobRunning(false);
-    } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false); // Re-enable on error
     }
   };
 
@@ -229,6 +222,9 @@ const CreateAdPage = () => {
                 setClientId(data.payload);
                 localStorage.setItem('ws_client_id', data.payload);
               } else if (data.type === 'Create-Ads-Result') {
+                if(data.data.includes("Successfully created")){
+                  setIsSubmitting(false);
+                }
                 setProcessingMessages(prev => [...prev, data.data]);
               } else if (data.type === 'PROCESSING') {
                 setProcessingMessages(prev => [...prev, data.data]);
@@ -289,9 +285,9 @@ const CreateAdPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
             
             <div className="space-y-6">
-              <InputField icon={<FiFileText />} label="Product Name" name="productName" value={formData.productName} onChange={handleInputChange} placeholder="e.g., Awesome Gadget" error={errors.productName} />
+              <InputField icon={<FiFileText />} label="Product Name" name="productName" value={formData.productName} onChange={handleInputChange} placeholder="e.g., Awesome Gadget" error={errors.productName} required />
 
-              <InputField icon={<FiLink />} label="Website URL" name="websiteUrl" type="url" value={formData.websiteUrl} onChange={handleInputChange} placeholder="https://yourproduct.com" error={errors.websiteUrl} />
+              <InputField icon={<FiLink />} label="Website URL" name="websiteUrl" type="url" value={formData.websiteUrl} onChange={handleInputChange} placeholder="https://yourproduct.com" error={errors.websiteUrl} required />
 
               <InputField icon={<FiTarget />} label="Campaign Count" name="campaignCount" type="number" value={formData.campaignCount} onChange={handleInputChange} placeholder="e.g., 10" error={errors.campaignCount} />
 
@@ -299,7 +295,7 @@ const CreateAdPage = () => {
 
               <TextareaField icon={<FiGlobe />} label="Target Countries" name="targetCountries" value={formData.targetCountries} onChange={handleInputChange} placeholder="US, CA, GB" />
 
-              <TextareaField icon={<FiInfo />} label="Keywords" name="keywords" value={formData.keywords} onChange={handleInputChange} placeholder="gadget, tech, cool stuff" error={errors.keywords} />
+              <TextareaField icon={<FiInfo />} label="Keywords" name="keywords" value={formData.keywords} onChange={handleInputChange} placeholder="gadget, tech, cool stuff" error={errors.keywords} required />
 
             
             
@@ -308,11 +304,11 @@ const CreateAdPage = () => {
             </div>
 
             <div className="space-y-6">
-              <InputField icon={<FiUser />} label="Customer ID" name="customerId" value={formData.customerId} onChange={handleInputChange} placeholder="e.g., 123-456-7890" error={errors.customerId} />
+              <InputField icon={<FiUser />} label="Customer ID" name="customerId" value={formData.customerId} onChange={handleInputChange} placeholder="e.g., 123-456-7890" error={errors.customerId} required />
 
-              <InputField icon={<FiLink />} label="Affiliate Link" name="affiliateLink" type="url" value={formData.affiliateLink} onChange={handleInputChange} placeholder="https://aff.link/yourid" error={errors.affiliateLink} />
+              <InputField icon={<FiLink />} label="Affiliate Link" name="affiliateLink" type="url" value={formData.affiliateLink} onChange={handleInputChange} placeholder="https://aff.link/yourid" error={errors.affiliateLink} required />
 
-              <InputField icon={<FiKey />} label="Proxy" name="proxy" value={formData.proxy} onChange={handleInputChange} placeholder="host:port:user:pass" disabled={formData.useTracker === 'Yes'} error={errors.proxy} />
+              <InputField icon={<FiKey />} label="Proxy" name="proxy" value={formData.proxy} onChange={handleInputChange} placeholder="host:port:user:pass" disabled={formData.useTracker === 'Yes'} error={errors.proxy} required />
 
               <InputField icon={<FiDollarSign />} label="Max Bidding Price" name="maxBiddingPrice" type="number" value={formData.maxBiddingPrice} onChange={handleInputChange} placeholder="e.g., 0.75" error={errors.maxBiddingPrice} />             
               
@@ -364,9 +360,9 @@ const CreateAdPage = () => {
   );
 };
 
-const InputField = ({ icon, label, error, ...props }: { icon: React.ReactNode, label: string, error?: string, [key: string]: any }) => (
+const InputField = ({ icon, label, error, required, ...props }: { icon: React.ReactNode, label: string, error?: string, required?: boolean, [key: string]: any }) => (
   <div>
-    <label htmlFor={props.name} className="block text-sm font-medium text-gray-300 mb-2">{label}</label>
+    <label htmlFor={props.name} className="block text-sm font-medium text-gray-300 mb-2">{label} {required && <span className="text-red-500">*</span>}</label>
     <div className="relative">
       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
         {icon}
@@ -377,9 +373,9 @@ const InputField = ({ icon, label, error, ...props }: { icon: React.ReactNode, l
   </div>
 );
 
-const TextareaField = ({ icon, label, error, ...props }: { icon: React.ReactNode, label: string, error?: string, [key: string]: any }) => (
+const TextareaField = ({ icon, label, error, required, ...props }: { icon: React.ReactNode, label: string, error?: string, required?: boolean, [key: string]: any }) => (
   <div>
-    <label htmlFor={props.name} className="block text-sm font-medium text-gray-300 mb-2">{label}</label>
+    <label htmlFor={props.name} className="block text-sm font-medium text-gray-300 mb-2">{label} {required && <span className="text-red-500">*</span>}</label>
     <div className="relative">
       <div className="absolute top-3.5 left-3 text-gray-400">
         {icon}

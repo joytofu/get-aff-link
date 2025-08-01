@@ -15,7 +15,8 @@ const SuffixTogglePage = ({
   handleSuffixesSubmit,
   isSubmittingSuffixes,
   mutateSuffixesErrors,
-  connectionStatus
+  connectionStatus,
+  countries
 }: any) => {
   const [isAutomatic, setIsAutomatic] = useState(true);
 
@@ -54,6 +55,13 @@ const SuffixTogglePage = ({
               <label htmlFor="customerId" className="block text-gray-300 mb-2">Customer ID</label>
               <input type="text" id="customerId" value={automaticFormData.customerId} onChange={handleAutomaticInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white focus:outline-none focus:border-emerald-500" 
               placeholder="Enter customer ID, format: 111-111-1111 or 1111111111" 
+              />
+            </div>
+            <div className="mb-4">
+              <CountryDropdown 
+                countries={countries}
+                selectedCountry={automaticFormData.country}
+                onSelect={(countryCode: any) => handleAutomaticInputChange({ target: { id: 'country', value: countryCode } } as any)}
               />
             </div>
             <div className="mb-4">
@@ -96,6 +104,14 @@ const SuffixTogglePage = ({
               {mutateSuffixesErrors.customerId && <p className="mt-1 text-sm text-red-500">{mutateSuffixesErrors.customerId}</p>}
             </div>
             <div className="mb-4">
+              <CountryDropdown 
+                countries={countries}
+                selectedCountry={mutateSuffixesSubmitData.country}
+                onSelect={(countryCode: any) => handleMutateSuffixesInputChange({ target: { name: 'country', value: countryCode, form: {id: 'submitSuffixesForm'} } } as any)}
+                error={mutateSuffixesErrors.country}
+              />
+            </div>
+            <div className="mb-4">
               <label htmlFor="finalUrlSuffixes" className="block text-gray-300 mb-2">Final URL Suffixes (one per line)</label>
               <textarea 
                 id="finalUrlSuffixes" 
@@ -135,6 +151,72 @@ const SuffixTogglePage = ({
   );
 };
 
+const CountryDropdown = ({ countries, selectedCountry, onSelect, error }: any) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const filteredCountries = searchTerm
+    ? countries.filter((country: any) =>
+        country.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        country.code.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : countries;
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={dropdownRef} className="relative">
+      <label htmlFor="country" className="block text-gray-300 mb-2">Country</label>
+      <button
+        type="button"
+        className={`w-full bg-gray-800 border rounded-md py-2 px-3 text-white text-left flex justify-between items-center focus:outline-none focus:border-emerald-500 ${error ? 'border-red-500' : 'border-gray-700'}`}
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <span>{selectedCountry ? `${countries.find((c:any) => c.code === selectedCountry)?.name} - ${selectedCountry}` : 'Select a country'}</span>
+        <svg className={`w-4 h-4 transition-transform ${isOpen ? 'transform rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+      </button>
+      {isOpen && (
+        <div className="absolute z-10 mt-1 w-full bg-gray-800 border border-gray-700 rounded-md shadow-lg max-h-60 overflow-y-auto">
+          <div className="p-2">
+            <input
+              type="text"
+              placeholder="Search..."
+              className="w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:border-emerald-500"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <ul>
+            {filteredCountries.map((country: any) => (
+              <li
+                key={country.code}
+                className="px-4 py-2 text-white hover:bg-gray-700 cursor-pointer"
+                onClick={() => {
+                  onSelect(country.code);
+                  setIsOpen(false);
+                  setSearchTerm('');
+                }}
+              >
+                {country.name} - {country.code}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
+    </div>
+  );
+};
+
 export default function Home() {
   // 添加新的标签页类型
   const [activeTab, setActiveTab] = useState<'refresh' | 'proxy' | 'clickFarming' | 'mutateSuffixes' | 'suffixToggle'>('refresh');
@@ -153,7 +235,7 @@ export default function Home() {
   });
   // 为Mutate Suffixes添加新的状态
   const [mutateSuffixesAuthData, setMutateSuffixesAuthData] = useState({ customerIds: '' });
-  const [mutateSuffixesSubmitData, setMutateSuffixesSubmitData] = useState({ customerId: '', suffixes: '' });
+  const [mutateSuffixesSubmitData, setMutateSuffixesSubmitData] = useState({ customerId: '', suffixes: '', country: '' });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [mutateSuffixesErrors, setMutateSuffixesErrors] = useState<Record<string, string>>({});
   const [modalState, setModalState] = useState({ isOpen: false, title: '', content: '' });
@@ -178,9 +260,146 @@ export default function Home() {
     customerId: '',
     proxyAddress: '',
     affiliateLink: '',
-    fetchCount: '4'
+    fetchCount: '4',
+    country: ''
   });
   const [isSubmittingAutomatic, setIsSubmittingAutomatic] = useState<boolean>(false);
+  const [countries, setCountries] = useState([
+    { name: 'United States', code: 'US' },
+    { name: 'China', code: 'CN' },
+    { name: 'United Kingdom', code: 'GB' },
+    { name: 'Canada', code: 'CA' },
+    { name: 'Australia', code: 'AU' },
+    { name: 'Germany', code: 'DE' },
+    { name: 'France', code: 'FR' },
+    { name: 'Japan', code: 'JP' },
+    { name: 'India', code: 'IN' },
+    { name: 'Brazil', code: 'BR' },
+    { name: 'Russia', code: 'RU' },
+    { name: 'South Korea', code: 'KR' },
+    { name: 'Italy', code: 'IT' },
+    { name: 'Spain', code: 'ES' },
+    { name: 'Mexico', code: 'MX' },
+    { name: 'Indonesia', code: 'ID' },
+    { name: 'Netherlands', code: 'NL' },
+    { name: 'Saudi Arabia', code: 'SA' },
+    { name: 'Switzerland', code: 'CH' },
+    { name: 'Sweden', code: 'SE' },
+    { name: 'Turkey', code: 'TR' },
+    { name: 'Argentina', code: 'AR' },
+    { name: 'Austria', code: 'AT' },
+    { name: 'Belgium', code: 'BE' },
+    { name: 'Chile', code: 'CL' },
+    { name: 'Colombia', code: 'CO' },
+    { name: 'Czech Republic', code: 'CZ' },
+    { name: 'Denmark', code: 'DK' },
+    { name: 'Egypt', code: 'EG' },
+    { name: 'Finland', code: 'FI' },
+    { name: 'Greece', code: 'GR' },
+    { name: 'Hong Kong', code: 'HK' },
+    { name: 'Hungary', code: 'HU' },
+    { name: 'Ireland', code: 'IE' },
+    { name: 'Israel', code: 'IL' },
+    { name: 'Malaysia', code: 'MY' },
+    { name: 'New Zealand', code: 'NZ' },
+    { name: 'Nigeria', code: 'NG' },
+    { name: 'Norway', code: 'NO' },
+    { name: 'Pakistan', code: 'PK' },
+    { name: 'Peru', code: 'PE' },
+    { name: 'Philippines', code: 'PH' },
+    { name: 'Poland', code: 'PL' },
+    { name: 'Portugal', code: 'PT' },
+    { name: 'Qatar', code: 'QA' },
+    { name: 'Romania', code: 'RO' },
+    { name: 'Singapore', code: 'SG' },
+    { name: 'South Africa', code: 'ZA' },
+    { name: 'Taiwan', code: 'TW' },
+    { name: 'Thailand', code: 'TH' },
+    { name: 'Ukraine', code: 'UA' },
+    { name: 'United Arab Emirates', code: 'AE' },
+    { name: 'Vietnam', code: 'VN' },
+    { name: 'Albania', code: 'AL' },
+    { name: 'Andorra', code: 'AD' },
+    { name: 'Armenia', code: 'AM' },
+    { name: 'Azerbaijan', code: 'AZ' },
+    { name: 'Belarus', code: 'BY' },
+    { name: 'Bosnia and Herzegovina', code: 'BA' },
+    { name: 'Bulgaria', code: 'BG' },
+    { name: 'Croatia', code: 'HR' },
+    { name: 'Cyprus', code: 'CY' },
+    { name: 'Estonia', code: 'EE' },
+    { name: 'Georgia', code: 'GE' },
+    { name: 'Iceland', code: 'IS' },
+    { name: 'Kazakhstan', code: 'KZ' },
+    { name: 'Latvia', code: 'LV' },
+    { name: 'Liechtenstein', code: 'LI' },
+    { name: 'Lithuania', code: 'LT' },
+    { name: 'Luxembourg', code: 'LU' },
+    { name: 'Malta', code: 'MT' },
+    { name: 'Moldova', code: 'MD' },
+    { name: 'Monaco', code: 'MC' },
+    { name: 'Montenegro', code: 'ME' },
+    { name: 'North Macedonia', code: 'MK' },
+    { name: 'San Marino', code: 'SM' },
+    { name: 'Serbia', code: 'RS' },
+    { name: 'Slovakia', code: 'SK' },
+    { name: 'Slovenia', code: 'SI' },
+    { name: 'Vatican City', code: 'VA' },
+    { name: 'Antigua and Barbuda', code: 'AG' },
+    { name: 'Bahamas', code: 'BS' },
+    { name: 'Barbados', code: 'BB' },
+    { name: 'Belize', code: 'BZ' },
+    { name: 'Bolivia', code: 'BO' },
+    { name: 'Costa Rica', code: 'CR' },
+    { name: 'Cuba', code: 'CU' },
+    { name: 'Dominica', code: 'DM' },
+    { name: 'Dominican Republic', code: 'DO' },
+    { name: 'Ecuador', code: 'EC' },
+    { name: 'El Salvador', code: 'SV' },
+    { name: 'Grenada', code: 'GD' },
+    { name: 'Guatemala', code: 'GT' },
+    { name: 'Guyana', code: 'GY' },
+    { name: 'Haiti', code: 'HT' },
+    { name: 'Honduras', code: 'HN' },
+    { name: 'Jamaica', code: 'JM' },
+    { name: 'Nicaragua', code: 'NI' },
+    { name: 'Panama', code: 'PA' },
+    { name: 'Paraguay', code: 'PY' },
+    { name: 'Saint Kitts and Nevis', code: 'KN' },
+    { name: 'Saint Lucia', code: 'LC' },
+    { name: 'Saint Vincent and the Grenadines', code: 'VC' },
+    { name: 'Suriname', code: 'SR' },
+    { name: 'Trinidad and Tobago', code: 'TT' },
+    { name: 'Uruguay', code: 'UY' },
+    { name: 'Venezuela', code: 'VE' },
+    { name: 'Afghanistan', code: 'AF' },
+    { name: 'Bahrain', code: 'BH' },
+    { name: 'Bangladesh', code: 'BD' },
+    { name: 'Bhutan', code: 'BT' },
+    { name: 'Brunei', code: 'BN' },
+    { name: 'Cambodia', code: 'KH' },
+    { name: 'Iran', code: 'IR' },
+    { name: 'Iraq', code: 'IQ' },
+    { name: 'Jordan', code: 'JO' },
+    { name: 'Kuwait', code: 'KW' },
+    { name: 'Kyrgyzstan', code: 'KG' },
+    { name: 'Laos', code: 'LA' },
+    { name: 'Lebanon', code: 'LB' },
+    { name: 'Maldives', code: 'MV' },
+    { name: 'Mongolia', code: 'MN' },
+    { name: 'Myanmar (Burma)', code: 'MM' },
+    { name: 'Nepal', code: 'NP' },
+    { name: 'North Korea', code: 'KP' },
+    { name: 'Oman', code: 'OM' },
+    { name: 'Palestine', code: 'PS' },
+    { name: 'Sri Lanka', code: 'LK' },
+    { name: 'Syria', code: 'SY' },
+    { name: 'Tajikistan', code: 'TJ' },
+    { name: 'Timor-Leste', code: 'TL' },
+    { name: 'Turkmenistan', code: 'TM' },
+    { name: 'Uzbekistan', code: 'UZ' },
+    { name: 'Yemen', code: 'YE' },
+  ]);
   const [currentJobType, setCurrentJobType] = useState<'proxy' | 'automatic' | null>(null);
 
   const socketRef = useRef<WebSocket | null>(null);
@@ -373,6 +592,8 @@ export default function Home() {
       cleanupConnection();
     };
   }, [cleanupConnection]);
+
+  
 
   useEffect(() => {
     if (!taskId) return;
@@ -668,6 +889,10 @@ export default function Home() {
       errors.customerId = 'Invalid Customer ID format. Use 111-111-1111 or 1111111111.';
     }
 
+    if (!mutateSuffixesSubmitData.country) {
+      errors.country = 'Please select a country.';
+    }
+
     const suffixes = mutateSuffixesSubmitData.suffixes.split('\n').filter(s => s.trim() !== '');
     if (suffixes.length === 0) {
       errors.suffixes = 'Suffixes cannot be empty.';
@@ -680,11 +905,12 @@ export default function Home() {
       try {
         const payload = {
           customer_id: mutateSuffixesSubmitData.customerId.replace(/-/g, ''),
-          final_url_suffixes: suffixes
+          final_url_suffixes: suffixes,
+          country: mutateSuffixesSubmitData.country
         };
         const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/mutate-suffixes`, payload);
         setModalState({ isOpen: true, title: 'Submission Successful', content: response.data.data || 'Suffixes have been submitted successfully.' });
-        setMutateSuffixesSubmitData({ customerId: '', suffixes: '' });
+        setMutateSuffixesSubmitData({ customerId: '', suffixes: '', country: '' });
       } catch (error) {
         console.error('Suffix submission failed:', error);
         const errorMessage = axios.isAxiosError(error) && error.response ? JSON.stringify(error.response.data) : 'An unexpected error occurred.';
@@ -726,7 +952,8 @@ export default function Home() {
             customer_id: automaticFormData.customerId,
             proxy: automaticFormData.proxyAddress,
             affiliate_link: automaticFormData.affiliateLink,
-            fetch_count: parseInt(automaticFormData.fetchCount, 10)
+            fetch_count: parseInt(automaticFormData.fetchCount, 10),
+            country: automaticFormData.country
         };
         const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/job/params-suffixes`, payload);
         setNotificationMessage(response.data.data || 'Job submitted successfully!');
@@ -1049,6 +1276,7 @@ export default function Home() {
                 isSubmittingSuffixes={isSubmittingSuffixes}
                 mutateSuffixesErrors={mutateSuffixesErrors}
                 connectionStatus={connectionStatus}
+                countries={countries}
               />
             ) : null}
           </div>
