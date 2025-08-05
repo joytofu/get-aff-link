@@ -106,7 +106,7 @@ const CreateAdPage = () => {
         campaigns_count: formData.campaignCount ? parseInt(formData.campaignCount, 10) : undefined,
         daily_budget: formData.dailyBudget ? parseFloat(formData.dailyBudget) : undefined,
         max_bidding_price: formData.maxBiddingPrice ? parseFloat(formData.maxBiddingPrice) : undefined,
-        keywords: formData.keywords.split(',').map(s => s.trim()).filter(s => s),
+        keywords: formData.keywords.replace(/\n/g, ',').split(',').map(s => s.trim()).filter(s => s),
         use_tracker: formData.useTracker === 'Yes',
         client_id: clientId,
       };
@@ -222,7 +222,7 @@ const CreateAdPage = () => {
                 setClientId(data.payload);
                 localStorage.setItem('ws_client_id', data.payload);
               } else if (data.type === 'Create-Ads-Result') {
-                if(data.data.includes("Successfully created")){
+                if(data.data.includes("Successfully created") || data.data.includes("<CreateAdsJob.Handle>")){
                   setIsSubmitting(false);
                 }
                 setProcessingMessages(prev => [...prev, data.data]);
