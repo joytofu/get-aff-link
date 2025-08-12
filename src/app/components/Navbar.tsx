@@ -29,7 +29,7 @@ export default function Navbar() {
   const navLinks = [
     { href: '/', label: 'Home' },
     { href: '/guide', label: 'Guide' },
-    { href: '/create-ad', label: 'Create Ad' },
+    //{ href: '/create-ad', label: 'Create Ad' },
   ];
 
   const handleLinkClick = () => {
