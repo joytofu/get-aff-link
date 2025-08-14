@@ -503,7 +503,7 @@ export default function Home() {
             }
 
             pingIntervalRef.current = setInterval(() => {
-              if (Date.now() - lastPongRef.current > 30000) {
+              if (Date.now() - lastPongRef.current > 1200000) {
                 console.error('Heartbeat timeout. No pong received for 30 seconds.');
                 newSocket.close(4008, 'Heartbeat timeout');
                 return;

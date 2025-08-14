@@ -60,7 +60,7 @@ const CreateAdPage = () => {
     } else if (!urlRegex.test(formData.affiliateLink)) {
       newErrors.affiliateLink = 'Please enter a valid URL';
     }
-    if (!formData.proxy) newErrors.proxy = 'Proxy is required';
+    if (formData.useTracker === 'No' && !formData.proxy) newErrors.proxy = 'Proxy is required';
     if (!formData.keywords) newErrors.keywords = 'Keywords are required';
 
     if (formData.campaignCount && !/^[1-9]\d*$/.test(formData.campaignCount)) {
@@ -198,7 +198,7 @@ const CreateAdPage = () => {
             }
 
             pingIntervalRef.current = setInterval(() => {
-              if (Date.now() - lastPongRef.current > 30000) {
+              if (Date.now() - lastPongRef.current > 1200000) {
                 newSocket.close(4008, 'Heartbeat timeout');
                 return;
               }
@@ -308,7 +308,7 @@ const CreateAdPage = () => {
 
               <InputField icon={<FiLink />} label="Affiliate Link" name="affiliateLink" type="url" value={formData.affiliateLink} onChange={handleInputChange} placeholder="https://aff.link/yourid" error={errors.affiliateLink} required />
 
-              <InputField icon={<FiKey />} label="Proxy" name="proxy" value={formData.proxy} onChange={handleInputChange} placeholder="host:port:user:pass" disabled={formData.useTracker === 'Yes'} error={errors.proxy} required />
+              <InputField icon={<FiKey />} label="Proxy" name="proxy" value={formData.proxy} onChange={handleInputChange} placeholder="host:port:user:pass" disabled={formData.useTracker === 'Yes'} error={errors.proxy} required={formData.useTracker === 'No'} />
 
               <InputField icon={<FiDollarSign />} label="Max Bidding Price" name="maxBiddingPrice" type="number" value={formData.maxBiddingPrice} onChange={handleInputChange} placeholder="e.g., 0.75" error={errors.maxBiddingPrice} />             
               
